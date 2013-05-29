@@ -1,0 +1,29 @@
+{
+  "name": "rear-admiral",
+  "version": "0.0.0",
+  "description": "rear-admiral ============",
+  "main": "app.coffee",
+  "directories": {
+    "doc": "docs"
+  },
+  "dependencies": {
+    "propagit": "git://github.com/davidbanham/propagit.git#master",
+    "coffee-script": "~1.6.2"
+  },
+  "devDependencies": {
+    "mocha": "~1.10.0",
+    "fleet": "~0.1.6",
+    "rimraf": "~2.1.4"
+  },
+  "scripts": {
+    "test": "./node_modules/.bin/mocha -R spec --compilers coffee:coffee-script"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/PinionTech/rear-admiral.git"
+  },
+  "author": "david@banham.id.au",
+  "license": "BSD",
+  "readmeFilename": "README.md",
+  "gitHead": "ecbd8c25d9763d420283491324d2d869f4fcaf72"
+}

@@ -1,0 +1,31 @@
+{
+  "test1": {
+    "instances": 1,
+    "load": 1,
+    "opts": {
+      "command": [
+        "node",
+        "server.js"
+      ],
+      "commit": "8b4e1e851e8c6341096663c4a189dc2649d8d89a",
+      "env": {
+        "PORT": 3010
+      }
+    }
+  },
+  "test2": {
+    "instances": 1,
+    "load": 1.5,
+    "opts": {
+      "command": [
+        "node",
+        "server.js"
+      ],
+      "commit": "88a708c727c00b36817defef86de60c023df0bc4",
+      "env": {
+        "PORT": 3011
+      }
+    }
+  }
+}
+
