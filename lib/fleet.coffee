@@ -45,7 +45,6 @@ allDrones = (drones, manifest, hub, reponame, repo, jobs, procList, errors, cb) 
       opts = JSON.parse JSON.stringify repo.opts
       opts.drone = name
       opts.repo = reponame
-      opts.env.PORT = opts.env.PORT + Math.floor(Math.random()*101)
       drones[name].load += repo.load
       hub.spawn opts, (err, procs) ->
         if err?
