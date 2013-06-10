@@ -22,15 +22,23 @@ someDrones = (drones, manifest, hub, reponame, repo, jobs, procList, errors, cb)
       opts.drone = targetDrone
       opts.repo = reponame
       drones[targetDrone].load += repo.load
-      hub.spawn opts, (err, procs) ->
+      setupOptions = JSON.parse JSON.stringify opts
+      setupOptions.command = setupOptions.setup ? ['echo']
+      setupOptions.once = true
+      hub.spawn setupOptions, (err, procs) ->
         if err?
-          errors = [] if !errors?
+          errors ?= []
           errors.push err
           console.error err
-        procList[reponame] = [] if !procList[reponame]?
-        procList[reponame].push procs
-        jobs++
-        cb errors, procList if jobs is 0
+        hub.spawn opts, (err, procs) ->
+          if err?
+            errors = [] if !errors?
+            errors.push err
+            console.error err
+          procList[reponame] = [] if !procList[reponame]?
+          procList[reponame].push procs
+          jobs++
+          cb errors, procList if jobs is 0
 
 allDrones = (drones, manifest, hub, reponame, repo, jobs, procList, errors, cb) ->
   jobs -= Object.keys(drones).length
@@ -46,15 +54,23 @@ allDrones = (drones, manifest, hub, reponame, repo, jobs, procList, errors, cb) 
       opts.drone = name
       opts.repo = reponame
       drones[name].load += repo.load
-      hub.spawn opts, (err, procs) ->
+      setupOptions = JSON.parse JSON.stringify opts
+      setupOptions.command = setupOptions.setup ? ['echo']
+      setupOptions.once = true
+      hub.spawn setupOptions, (err, procs) ->
         if err?
-          errors = [] if !errors?
+          errors ?= []
           errors.push err
           console.error err
-        procList[reponame] = [] if !procList[reponame]?
-        procList[reponame].push procs
-        jobs++
-        cb errors, procList if jobs is 0
+        hub.spawn opts, (err, procs) ->
+          if err?
+            errors = [] if !errors?
+            errors.push err
+            console.error err
+          procList[reponame] = [] if !procList[reponame]?
+          procList[reponame].push procs
+          jobs++
+          cb errors, procList if jobs is 0
 
 module.exports =
   checkFleet: (drones, manifest, cb) ->

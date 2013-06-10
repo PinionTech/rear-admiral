@@ -3,6 +3,10 @@
     "instances": 1,
     "load": 1,
     "opts": {
+      "setup": [
+        "npm",
+        "install"
+      ],
       "command": [
         "node",
         "server.js"
