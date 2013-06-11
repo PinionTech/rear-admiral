@@ -11,66 +11,14 @@ sortDrones = (drones) ->
     a[1] - b[1]
   .map (n) -> n[0]
 
-someDrones = (drones, manifest, hub, reponame, repo, jobs, procList, errors, cb) ->
-  delta = repo.running - repo.instances
-  if delta < 0
-    jobs += delta
-    while delta < 0
-      delta++
-      opts = JSON.parse JSON.stringify repo.opts
-      targetDrone = (sortDrones drones)[0]
-      opts.drone = targetDrone
-      opts.repo = reponame
-      drones[targetDrone].load += repo.load
-      setupOptions = JSON.parse JSON.stringify opts
-      setupOptions.command = setupOptions.setup ? ['echo']
-      setupOptions.once = true
-      hub.spawn setupOptions, (err, procs) ->
-        if err?
-          errors ?= []
-          errors.push err
-          console.error err
-        hub.spawn opts, (err, procs) ->
-          if err?
-            errors = [] if !errors?
-            errors.push err
-            console.error err
-          procList[reponame] = [] if !procList[reponame]?
-          procList[reponame].push procs
-          jobs++
-          cb errors, procList if jobs is 0
-
-allDrones = (drones, manifest, hub, reponame, repo, jobs, procList, errors, cb) ->
-  jobs -= Object.keys(drones).length
-  for name, drone of drones
-    isPresent = false
-    for pid, proc of drone.procs
-      isPresent = true if proc.repo == reponame and repo.opts.commit == proc.commit
-    if isPresent
-      jobs++
-      cb errors, procList if jobs is 0
-    else
-      opts = JSON.parse JSON.stringify repo.opts
-      opts.drone = name
-      opts.repo = reponame
-      drones[name].load += repo.load
-      setupOptions = JSON.parse JSON.stringify opts
-      setupOptions.command = setupOptions.setup ? ['echo']
-      setupOptions.once = true
-      hub.spawn setupOptions, (err, procs) ->
-        if err?
-          errors ?= []
-          errors.push err
-          console.error err
-        hub.spawn opts, (err, procs) ->
-          if err?
-            errors = [] if !errors?
-            errors.push err
-            console.error err
-          procList[reponame] = [] if !procList[reponame]?
-          procList[reponame].push procs
-          jobs++
-          cb errors, procList if jobs is 0
+buildOpts = (input, targetDrone, reponame, setup) ->
+  opts = JSON.parse JSON.stringify input
+  opts.drone = targetDrone
+  opts.repo = reponame
+  if setup
+    opts.command = opts.setup
+    opts.once = true
+  return opts
 
 module.exports =
   checkFleet: (drones, manifest, cb) ->
@@ -82,18 +30,67 @@ module.exports =
     cb null, manifest
 
   repairFleet: (drones, manifest, hub, cb) ->
+    em = new EventEmitter
     jobs = 0
-    errors = null
     procList = {}
     errors = null
-    for reponame, repo of manifest
-      do (reponame, repo) ->
-        if repo.instances == '*'
-          allDrones drones, manifest, hub, reponame, repo, jobs, procList, errors, (errors, procList) ->
-            cb errors, procList
+    em.on 'allDrones', (reponame, repo) ->
+      jobs -= Object.keys(drones).length
+      droneList = []
+      for name, drone of drones
+        isPresent = false
+        for pid, proc of drone.procs
+          isPresent = true if proc.repo == reponame and repo.opts.commit == proc.commit
+        if isPresent
+          jobs++
+          cb errors, procList if jobs is 0
         else
-          someDrones drones, manifest, hub, reponame, repo, jobs, procList, errors, (errors, procList) ->
-            cb errors, procList
+          drones[name].load += repo.load
+          droneList.push name
+      em.emit 'droneList', reponame, repo, droneList
+
+    em.on 'someDrones', (reponame, repo) ->
+      delta = repo.running - repo.instances
+      droneList = []
+      if delta < 0
+        jobs += delta
+        while delta < 0
+          delta++
+          targetDrone = (sortDrones drones)[0]
+          drones[targetDrone].load += repo.load
+          droneList.push targetDrone
+        em.emit 'droneList', reponame, repo, droneList
+
+    em.on 'droneList', (reponame, repo, droneList) ->
+      for drone in droneList
+        em.emit 'setupTask', reponame, repo, drone if repo.opts.setup?
+        em.emit 'spawn', reponame, repo, drone if !repo.opts.setup?
+
+    em.on 'setupTask', (reponame, repo, drone) ->
+      opts = buildOpts repo.opts, drone, reponame, true
+      hub.spawn opts, (err, procs) ->
+        em.emit 'error', err if err?
+        em.emit 'spawn', reponame, repo, drone
+
+    em.on 'spawn', (reponame, repo, drone) ->
+      opts = buildOpts repo.opts, drone, reponame, false
+      hub.spawn opts, (err, procs) ->
+        em.emit 'error', err if err?
+        procList[reponame] ?= []
+        procList[reponame].push procs
+        jobs++
+        cb errors, procList if jobs is 0
+
+    em.on 'error', (err) ->
+      errors ?= []
+      errors.push err
+      console.error err
+
+    for reponame, repo of manifest
+      if repo.instances == '*'
+        em.emit 'allDrones', reponame, repo
+      else
+        em.emit 'someDrones', reponame, repo
 
   listDrones: (hub, manifest, cb) ->
     drones = {}
