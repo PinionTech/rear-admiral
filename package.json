@@ -8,7 +8,8 @@
   },
   "dependencies": {
     "propagit": "git://github.com/davidbanham/propagit.git#master",
-    "coffee-script": "~1.6.2"
+    "coffee-script": "~1.6.2",
+    "upnode": "~0.4.3"
   },
   "devDependencies": {
     "mocha": "~1.10.0",

@@ -1,4 +1,6 @@
 EventEmitter = require('events').EventEmitter
+butler = require './butler'
+butler.setSecret 'asd123'
 calcLoad = (drone, manifest) ->
   load = 0
   for proc, data of drone.procs
@@ -11,14 +13,31 @@ sortDrones = (drones) ->
     a[1] - b[1]
   .map (n) -> n[0]
 
-buildOpts = (input, targetDrone, reponame, setup) ->
+buildOpts = (input, targetDrone, reponame, setup, cb) ->
+  jobs = 0
+  errs = []
+  checkDone = ->
+    if jobs is 0
+      errs = null if errs.length is 0
+      cb errs, opts
   opts = JSON.parse JSON.stringify input
   opts.drone = targetDrone
   opts.repo = reponame
   if setup
     opts.command = opts.setup
     opts.once = true
-  return opts
+  for variable, value of opts.env
+    switch value
+      when "DRONE_NAME"
+        opts.env[variable] = targetDrone
+      when "RANDOM_PORT"
+        jobs++
+        butler.getPort targetDrone, (err, port) ->
+          errs.push err if err?
+          jobs--
+          opts.env[variable] = port
+          checkDone()
+  checkDone()
 
 module.exports =
   checkFleet: (drones, manifest, cb) ->
@@ -67,19 +86,20 @@ module.exports =
         em.emit 'spawn', reponame, repo, drone if !repo.opts.setup?
 
     em.on 'setupTask', (reponame, repo, drone) ->
-      opts = buildOpts repo.opts, drone, reponame, true
-      hub.spawn opts, (err, procs) ->
-        em.emit 'error', err if err?
-        em.emit 'spawn', reponame, repo, drone
+      buildOpts repo.opts, drone, reponame, true, (err, opts) ->
+        hub.spawn opts, (err, procs) ->
+          em.emit 'error', err if err?
+          em.emit 'spawn', reponame, repo, drone
 
     em.on 'spawn', (reponame, repo, drone) ->
-      opts = buildOpts repo.opts, drone, reponame, false
-      hub.spawn opts, (err, procs) ->
-        em.emit 'error', err if err?
-        procList[reponame] ?= []
-        procList[reponame].push procs
-        jobs++
-        cb errors, procList if jobs is 0
+      buildOpts repo.opts, drone, reponame, false, (err, opts) ->
+        console.log "about to call spawn for", opts
+        hub.spawn opts, (err, procs) ->
+          em.emit 'error', err if err?
+          procList[reponame] ?= []
+          procList[reponame].push procs
+          jobs++
+          cb errors, procList if jobs is 0
 
     em.on 'error', (err) ->
       errors ?= []
