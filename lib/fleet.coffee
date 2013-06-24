@@ -140,7 +140,7 @@ module.exports =
         shortCircuit.drones[drone.name] =
           procs: drone.procs
           load: 0
-        delete shortCircuit.manifest[repo] for repo in shortCircuit.manifest when repo.bootstrap is false
+        delete shortCircuit.manifest[repo] for repo in shortCircuit.manifest when repo.bootstrap isnt true
         return repairFleet shortCircuit.drones, shortCircuit.manifest, hub, (err, procList) ->
       drone = calcLoad drone, manifest
       drones[drone.name] =
