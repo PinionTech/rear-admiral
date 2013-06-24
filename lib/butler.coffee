@@ -5,8 +5,8 @@ connections = {}
 
 getConnection = (drone) ->
   return connections[drone.name] if connections[drone.name]?
-  return new Error "Unknown drone, no host provided" if !drone.host?
-  return connections[drone.name] = upnode.connect drone.host, 7004, (remote, conn) ->
+  return new Error "Butler error: Unknown drone, no host provided" if !drone.host?
+  connections[drone.name] = upnode.connect drone.host, 7004, (remote, conn) ->
     remote.auth 'o87asdoa87sa', (err, res) ->
       console.error err if err?
       conn.emit 'up', res
@@ -16,7 +16,7 @@ module.exports =
     SECRET = secret
   getPort: (drone, cb) ->
     up = getConnection({name: drone})
-    cb up if up instanceof Error
+    return cb up if up instanceof Error
     up (remote) ->
       remote.port cb
 
@@ -29,7 +29,7 @@ server = http.createServer (req, res) ->
   if authArray[1] != SECRET
     res.writeHead 403
     res.end '403'
-  getConnection({name: params[1], host: req.socket.remoteAddress})
+  getConnection({name: params[2], host: req.socket.remoteAddress})
   res.writeHead 200
   res.end '200'
 server.listen 7003, '127.0.0.1'
