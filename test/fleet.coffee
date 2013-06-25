@@ -19,3 +19,31 @@ describe 'fleet', ->
     it "Should have the highest loaded drone at last position", ->
       sorted = fleet.sortDrones drones
       assert.equal sorted[sorted.length - 1], 'high'
+  describe 'bootstrapping', ->
+    drones =
+      drone1:
+        load: 0
+        procs: {}
+      drone2:
+        load: 0
+        procs:{}
+    manifest =
+      bootstrapTask:
+        instances: "*"
+        load: 1
+        opts:
+          bootstrap: true
+    it "Shouldn't return any drones if none are bootstrapped", (done) ->
+      fleet.bootstrap null, drones, manifest, (err, drones) ->
+        assert.equal Object.keys(drones).length, 0
+        done()
+    it "Should return only bootstrapped drones", (done) ->
+      drones = JSON.parse JSON.stringify drones
+      drones.strapped =
+        load: 1
+        procs:
+          somePID:
+            repo: "bootstrapTask"
+      fleet.bootstrap null, drones, manifest, (err, drones) ->
+        assert.equal Object.keys(drones).length, 1
+        done()
