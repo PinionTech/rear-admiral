@@ -12,7 +12,7 @@ bootstrapped = (drone, manifest) ->
   required = 0
   for job, jobData of manifest when jobData.opts.bootstrap is true
     required++
-    for proc, data of drone.procs
+    for pid, data of drone.procs
       required-- if data.repo is job
   return true if required is 0
   return false
@@ -113,6 +113,40 @@ repairFleet = (drones, manifest, hub, cb) ->
     else
       em.emit 'someDrones', reponame, repo
 
+listDrones = (hub, manifest, cb) ->
+  drones = {}
+  em =  new EventEmitter
+
+  em.on 'data', (name, procs) ->
+    drone =
+      name: name
+      procs: procs
+    drone = calcLoad drone, manifest
+    drones[drone.name] =
+      procs: drone.procs
+      load: drone.load
+
+  em.on 'end', ->
+    cb null, drones
+
+  hub.ps em.emit.bind em
+
+bootstrap = (hub, drones, manifest, cb) ->
+  for drone, droneData of drones
+    if !bootstrapped droneData, manifest
+      delete drones[drone]
+      shortCircuit =
+        drones: {}
+        manifest:
+          JSON.parse JSON.stringify manifest
+      shortCircuit.drones[drone] =
+        procs: drone.procs
+        load: 0
+      continue if !hub?
+      repairFleet shortCircuit.drones, shortCircuit.manifest, hub, (err, procList) ->
+        console.log "Bootstrapped #{drone} with err:", err, "and procList", procList
+  cb null, drones
+
 module.exports =
   checkFleet: (drones, manifest, cb) ->
     repo.running = 0 for reponame, repo of manifest
@@ -123,33 +157,7 @@ module.exports =
     cb null, manifest
 
   repairFleet: repairFleet
-
-  listDrones: (hub, manifest, cb) ->
-    drones = {}
-    em =  new EventEmitter
-
-    em.on 'data', (name, procs) ->
-      drone =
-        name: name
-        procs: procs
-      if !bootstrapped drone, manifest
-        shortCircuit =
-          drones: {}
-          manifest:
-            JSON.parse JSON.stringify manifest
-        shortCircuit.drones[drone.name] =
-          procs: drone.procs
-          load: 0
-        delete shortCircuit.manifest[repo] for repo in shortCircuit.manifest when repo.bootstrap isnt true
-        return repairFleet shortCircuit.drones, shortCircuit.manifest, hub, (err, procList) ->
-      drone = calcLoad drone, manifest
-      drones[drone.name] =
-        procs: drone.procs
-        load: drone.load
-
-    em.on 'end', ->
-      cb null, drones
-
-    hub.ps em.emit.bind em
+  listDrones: listDrones
   calcLoad: calcLoad
   sortDrones: sortDrones
+  bootstrap: bootstrap

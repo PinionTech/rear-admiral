@@ -20,12 +20,14 @@ startChecking = (hub) ->
   setInterval ->
     getManifest (err, manifest) ->
       fleet.listDrones hub, manifest, (err, drones) ->
-        return console.error "no drones available" if Object.keys(drones).length < 1
-        fleet.checkFleet drones, manifest, (err, manifest) ->
-          fleet.repairFleet drones, manifest, hub, (err, procList) ->
-            console.error err if err?
-            console.log "Spawned processes for #{reponame}", procs for reponame, procs of procList
-            healthy = false if err?
+        return console.error "No drones available" if Object.keys(drones).length < 1
+        fleet.bootstrap hub, drones, manifest, (err, drones) ->
+          return console.error "No bootstrapped drones available" if Object.keys(drones).length < 1
+          fleet.checkFleet drones, manifest, (err, manifest) ->
+            fleet.repairFleet drones, manifest, hub, (err, procList) ->
+              console.error err if err?
+              console.log "Spawned processes for #{reponame}", procs for reponame, procs of procList
+              healthy = false if err?
   , 3000
 
 p.hub.on 'up', (hub) ->
