@@ -38,7 +38,7 @@ describe 'integration', ->
     drone2.on 'exit', () ->
       killed++
       done() if killed is 4
-  it 'Should spawn one on every drone if told to', (done) ->
+  it 'Should spawn pending jobs', (done) ->
     checker = setInterval ->
       if deployed
         success = 0
@@ -54,21 +54,25 @@ describe 'integration', ->
             success++
             tripped.drone2 = true
         p.hub.on 'up', (hub) ->
-          drones =
-            drone1:
-              load: 0
-            drone2:
-              load: 0
-          manifest =
-            "test1":
-              load: 1
-              instances: '*'
-              running: 0
-              opts:
-                env: {PORT: 3000}
-                command: ["node", "server.js"]
-                commit: '8b4e1e851e8c6341096663c4a189dc2649d8d89a'
-          fleet.repairFleet drones, manifest, hub, (err, procList) ->
+          model =
+            hub: hub
+            manifest:
+              "test1":
+                load: 1
+                instances: '*'
+                running: 0
+                opts:
+                  env: {PORT: 3000}
+                  command: ["node", "server.js"]
+                  commit: '8b4e1e851e8c6341096663c4a189dc2649d8d89a'
+            swarm:
+              drone1:
+                load: 0
+                pending: ['test1']
+              drone2:
+                load: 0
+                pending: ['test1']
+          fleet.repairFleet model, (err, model, procList) ->
             assert.equal err, null
             assert procs.length > 0 for reponame, procs of procList
             stopped = 0
@@ -82,48 +86,3 @@ describe 'integration', ->
               done() if success is 2 and stopped is 2
             , 500
     , 500
-
-  it 'Should spawn evenly across available drones', (done) ->
-    checker = setInterval ->
-      if deployed
-        success = 0
-        tripped = {}
-        clearInterval checker
-        p = propagit {hub: '127.0.0.1:7010', secret: 'rearadtest'}
-        drone1.stdout.on 'data', (data) ->
-          if data.toString().split(' ').slice(1, 4).join(' ') is "Server running at" and !tripped.drone1?
-            success++
-            tripped.drone1 = true
-        drone2.stdout.on 'data', (data) ->
-          if data.toString().split(' ').slice(1, 4).join(' ') is "Server running at" and !tripped.drone2?
-            success++
-            tripped.drone2 = true
-        p.hub.on 'up', (hub) ->
-          drones =
-            drone1:
-              load: 0
-            drone2:
-              load: 0
-          manifest =
-            "test1":
-              load: 1
-              instances: 2
-              running: 0
-              opts:
-                env: {PORT: 0}
-                command: ["node", "server.js"]
-                commit: '8b4e1e851e8c6341096663c4a189dc2649d8d89a'
-          fleet.repairFleet drones, manifest, hub, (err, procList) ->
-            assert.equal err, null
-            assert procs.length > 0 for reponame, procs of procList
-            stopped = 0
-            successCheck = setInterval ->
-              for reponame, procs of procList
-                for instance in procs
-                  for drone, id of instance
-                    hub.stop {drone: drone, pid: id}, (err, drones) ->
-                      stopped++
-              clearInterval successCheck if success is 2 and stopped is 2
-              done() if success is 2 and stopped is 2
-            , 500
-     , 500

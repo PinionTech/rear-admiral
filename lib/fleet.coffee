@@ -8,19 +8,15 @@ calcLoad = (drone, manifest) ->
   drone.load = load
   return drone
 
-bootstrapped = (drone, manifest) ->
-  required = 0
-  for job, jobData of manifest when jobData.opts.bootstrap is true
-    required++
-    for pid, data of drone.procs
-      required-- if data.repo is job
-  return true if required is 0
-  return false
-
 sortDrones = (drones) ->
   ([k, v.load] for k, v of drones).sort (a,b) ->
     a[1] - b[1]
   .map (n) -> n[0]
+
+filterBootstrapped = (drones) =>
+  for name, drone of drones
+    delete drones[name] if !drone.bootstrapped
+  return drones
 
 buildOpts = (input, targetDrone, reponame, setup, cb) ->
   jobs = 0
@@ -48,116 +44,121 @@ buildOpts = (input, targetDrone, reponame, setup, cb) ->
           checkDone()
   checkDone()
 
-repairFleet = (drones, manifest, hub, cb) ->
+buildPending = (model, cb) ->
+  err = null
+  for reponame, repo of model.manifest
+    if repo.instances == '*'
+      #allDrones
+      for name, drone of model.swarm
+        running = false
+        for pid, proc of drone.procs
+          running = true if proc.repo is reponame and repo.opts.commit is proc.commit
+        continue if running
+        drone.pending ?= []
+        if !drone.bootstrapped
+          continue if !repo.opts.bootstrap
+        drone.load += repo.load
+        drone.pending.push reponame
+    else
+      #someDrones
+      delta = repo.running - repo.instances
+      while delta < 0
+        delta++
+        bootstrappedDrones = filterBootstrapped JSON.parse JSON.stringify model.swarm
+        if Object.keys(bootstrappedDrones).length < 1
+          err = "No bootstrapped drones"
+        else
+          targetDrone = (sortDrones bootstrappedDrones)[0]
+          model.swarm[targetDrone].load += repo.load
+          model.swarm[targetDrone].pending ?= []
+          model.swarm[targetDrone].pending.push reponame
+  cb err, model
+
+repairFleet = (model, cb) ->
   em = new EventEmitter
   jobs = 0
   procList = {}
   errors = null
-  em.on 'allDrones', (reponame, repo) ->
-    jobs -= Object.keys(drones).length
-    droneList = []
-    for name, drone of drones
-      isPresent = false
-      for pid, proc of drone.procs
-        isPresent = true if proc.repo == reponame and repo.opts.commit == proc.commit
-      if isPresent
-        jobs++
-        cb errors, procList if jobs is 0
-      else
-        drones[name].load += repo.load
-        droneList.push name
-    em.emit 'droneList', reponame, repo, droneList
 
-  em.on 'someDrones', (reponame, repo) ->
-    delta = repo.running - repo.instances
-    droneList = []
-    if delta < 0
-      jobs += delta
-      while delta < 0
-        delta++
-        targetDrone = (sortDrones drones)[0]
-        drones[targetDrone].load += repo.load
-        droneList.push targetDrone
-      em.emit 'droneList', reponame, repo, droneList
+  em.on 'setupTask', (repo, drone) ->
+    if model.manifest[repo].opts.setup?
+      buildOpts model.manifest[repo].opts, drone, repo, true, (err, opts) ->
+        throw new Error err if err?
+        model.hub.spawn opts, (err, procs) ->
+          em.emit 'error', err if err?
+          em.emit 'spawn', repo, drone
+    else
+      em.emit 'spawn', repo, drone
 
-  em.on 'droneList', (reponame, repo, droneList) ->
-    for drone in droneList
-      em.emit 'setupTask', reponame, repo, drone if repo.opts.setup?
-      em.emit 'spawn', reponame, repo, drone if !repo.opts.setup?
-
-  em.on 'setupTask', (reponame, repo, drone) ->
-    buildOpts repo.opts, drone, reponame, true, (err, opts) ->
-      return console.error err if err?
-      hub.spawn opts, (err, procs) ->
+  em.on 'spawn', (repo, drone) ->
+    buildOpts model.manifest[repo].opts, drone, repo, false, (err, opts) ->
+      throw new Error err if err?
+      model.hub.spawn opts, (err, procs) ->
         em.emit 'error', err if err?
-        em.emit 'spawn', reponame, repo, drone
-
-  em.on 'spawn', (reponame, repo, drone) ->
-    buildOpts repo.opts, drone, reponame, false, (err, opts) ->
-      return console.error err if err?
-      hub.spawn opts, (err, procs) ->
-        em.emit 'error', err if err?
-        procList[reponame] ?= []
-        procList[reponame].push procs
-        jobs++
-        cb errors, procList if jobs is 0
+        procList[repo] ?= []
+        procList[repo].push procs
+        jobs--
+        cb errors, model, procList if jobs is 0
 
   em.on 'error', (err) ->
     errors ?= []
     errors.push err
     console.error err
 
-  for reponame, repo of manifest
-    if repo.instances == '*'
-      em.emit 'allDrones', reponame, repo
-    else
-      em.emit 'someDrones', reponame, repo
+  for name, drone of model.swarm
+    continue if !drone.pending?
+    for repo in drone.pending
+      jobs++
+      em.emit 'setupTask', repo, name
 
-listDrones = (hub, manifest, cb) ->
-  drones = {}
+listDrones = (model, cb) ->
+  model.swarm = {}
+  drones = model.swarm
   em =  new EventEmitter
 
   em.on 'data', (name, procs) ->
     drone =
       name: name
       procs: procs
-    drone = calcLoad drone, manifest
+    drone = calcLoad drone, model.manifest
     drones[drone.name] =
       procs: drone.procs
       load: drone.load
 
   em.on 'end', ->
-    cb null, drones
+    cb null, model
 
-  hub.ps em.emit.bind em
+  model.hub.ps em.emit.bind em
 
-bootstrap = (hub, drones, manifest, cb) ->
-  for drone, droneData of drones
-    if !bootstrapped droneData, manifest
-      delete drones[drone]
-      shortCircuit =
-        drones: {}
-        manifest:
-          JSON.parse JSON.stringify manifest
-      shortCircuit.drones[drone] =
-        procs: drone.procs
-        load: 0
-      continue if !hub?
-      repairFleet shortCircuit.drones, shortCircuit.manifest, hub, (err, procList) ->
-        console.log "Bootstrapped #{drone} with err:", err, "and procList", procList
-  cb null, drones
+bootstrapStatus = (model, cb) ->
+  for drone, droneData of model.swarm
+    if !bootstrapped droneData, model.manifest
+      model.swarm[drone].bootstrapped = false
+    else model.swarm[drone].bootstrapped = true
+  cb null, model
+
+bootstrapped = (drone, manifest) ->
+  required = 0
+  for job, jobData of manifest when jobData.opts.bootstrap is true
+    required++
+    for pid, data of drone.procs
+      required-- if data.repo is job
+  return true if required is 0
+  return false
 
 module.exports =
-  checkFleet: (drones, manifest, cb) ->
-    repo.running = 0 for reponame, repo of manifest
-    for reponame, repo of manifest
-      for dronename, drone of drones
+  checkFleet: (model, cb) ->
+    repo.running = 0 for reponame, repo of model.manifest
+    for reponame, repo of model.manifest
+      for dronename, drone of model.swarm
         for procname, proc of drone.procs
           repo.running += 1 if proc.repo == reponame and proc.status == "running"
-    cb null, manifest
+    cb null, model
 
   repairFleet: repairFleet
   listDrones: listDrones
   calcLoad: calcLoad
   sortDrones: sortDrones
-  bootstrap: bootstrap
+  bootstrapStatus: bootstrapStatus
+  bootstrapped: bootstrapped
+  buildPending: buildPending
