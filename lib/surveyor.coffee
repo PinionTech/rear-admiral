@@ -1,0 +1,61 @@
+bootstrapStatus = (model, cb) ->
+  for drone, droneData of model.swarm
+    if !bootstrapped droneData, model.manifest
+      model.swarm[drone].bootstrapped = false
+    else model.swarm[drone].bootstrapped = true
+  cb null, model
+
+bootstrapped = (drone, manifest) ->
+  required = 0
+  for job, jobData of manifest when jobData.opts.bootstrap is true
+    required++
+    for pid, data of drone.procs
+      required-- if data.repo is job
+  return true if required is 0
+  return false
+
+buildPending = (model, cb) ->
+  err = null
+  for reponame, repo of model.manifest
+    if repo.instances == '*'
+      #allDrones
+      for name, drone of model.swarm
+        running = false
+        for pid, proc of drone.procs
+          running = true if proc.repo is reponame and repo.opts.commit is proc.commit
+        continue if running
+        drone.pending ?= []
+        if !drone.bootstrapped
+          continue if !repo.opts.bootstrap
+        drone.load += repo.load
+        drone.pending.push reponame
+    else
+      #someDrones
+      delta = repo.running - repo.instances
+      while delta < 0
+        delta++
+        bootstrappedDrones = filterBootstrapped JSON.parse JSON.stringify model.swarm
+        if Object.keys(bootstrappedDrones).length < 1
+          err = "No bootstrapped drones"
+        else
+          targetDrone = (sortDrones bootstrappedDrones)[0]
+          model.swarm[targetDrone].load += repo.load
+          model.swarm[targetDrone].pending ?= []
+          model.swarm[targetDrone].pending.push reponame
+  cb err, model
+
+filterBootstrapped = (drones) =>
+  for name, drone of drones
+    delete drones[name] if !drone.bootstrapped
+  return drones
+
+sortDrones = (drones) ->
+  ([k, v.load] for k, v of drones).sort (a,b) ->
+    a[1] - b[1]
+  .map (n) -> n[0]
+
+module.exports =
+  bootstrapStatus: bootstrapStatus
+  bootstrapped: bootstrapped
+  buildPending: buildPending
+  sortDrones: sortDrones

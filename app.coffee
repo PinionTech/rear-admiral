@@ -1,5 +1,6 @@
 propagit = require 'propagit'
 fleet = require './lib/fleet'
+surveyor = require './lib/surveyor'
 fs = require 'fs'
 
 OPTS =
@@ -24,9 +25,9 @@ startChecking = (hub) ->
         manifest: manifest
       fleet.listDrones model, (err, model) ->
         return console.error "No drones available" if Object.keys(model.swarm).length < 1
-        fleet.bootstrapStatus model, (err, model) ->
+        surveyor.bootstrapStatus model, (err, model) ->
           fleet.checkFleet model, (err, model) ->
-            fleet.buildPending model, (err, model) ->
+            surveyor.buildPending model, (err, model) ->
               fleet.repairFleet model, (err, model, procList) ->
                 console.error err if err?
                 console.log "Spawned processes for #{reponame}", procs for reponame, procs of procList
