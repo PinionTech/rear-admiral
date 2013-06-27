@@ -1,6 +1,7 @@
 propagit = require 'propagit'
 fleet = require './lib/fleet'
 surveyor = require './lib/surveyor'
+butler = require './lib/butler'
 fs = require 'fs'
 
 OPTS =
@@ -32,6 +33,11 @@ startChecking = (hub) ->
                 console.error err if err?
                 console.log "Spawned processes for #{reponame}", procs for reponame, procs of procList
                 healthy = false if err?
+                model = butler.associateHosts model
+                model = surveyor.createRoutingTable model
+                  butler.propagateRoutingTable model, (err, model) ->
+                    console.error err if err?
+                    console.log "Wrote routing table on all drones" unless err?
   , 3000
 
 p.hub.on 'up', (hub) ->

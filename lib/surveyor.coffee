@@ -54,8 +54,24 @@ sortDrones = (drones) ->
     a[1] - b[1]
   .map (n) -> n[0]
 
+createRoutingTable = (model) ->
+  routes = {}
+  for droneName, drone of model.swarm
+    for pid, service of drone.portMap
+      routes[service.repo] ?= {}
+      for k, v of model.manifest[service.repo].routing
+        routes[service.repo][k] = v
+      routes[service.repo].routes ?= []
+      routes[service.repo].routes.push {
+        host: drone.host
+        port: service.port
+      }
+  model.routingTable = routes
+  return model
+
 module.exports =
   bootstrapStatus: bootstrapStatus
   bootstrapped: bootstrapped
   buildPending: buildPending
   sortDrones: sortDrones
+  createRoutingTable: createRoutingTable

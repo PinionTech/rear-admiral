@@ -1,5 +1,6 @@
 upnode = require 'upnode'
 http = require 'http'
+deepEqual = require 'deep-equal'
 SECRET = ''
 connections = {}
 
@@ -14,37 +15,40 @@ getConnection = (drone) ->
       conn.emit 'up', res
 associateHosts = (model) ->
   for droneName, drone of model.swarm
-    drone.host = getConnection(droneName).host
+    drone.host = getConnection({name: droneName}).host
   return model
 
-createRoutingTable = (model) ->
-  routes = {}
+propagateRoutingTable = (model, cb) ->
+  jobs = Object.keys(model.swarm).length
+
   for droneName, drone of model.swarm
-    for pid, service of drone.portMap
-      routes[service.repo] ?= {}
-      routes[service.repo].domain = model.manifest[service.repo].domain
-      routes[service.repo].routes ?= []
-      routes[service.repo].routes.push {
-        host: drone.host
-        port: service.port
-      }
-  model.routingTable = routes
-  return model
+    drone.routingTable ?= {}
+    if deepEqual drone.routingTable, model.routingTable
+      jobs--
+      continue
+    drone.routingTable = JSON.parse JSON.stringify model.routingTable
+    connection = getConnection({name: droneName})
+    return cb connection, model if connection instanceof Error
+    timer = setTimeout ->
+      drone.routingTable = {}
+    , 1000 * 10
+    connection.up (remote) ->
+      remote.updateRouting model.routingTable, (err) ->
+        clearTimeout timer
+        jobs--
+        return cb err, model if err?
+        return cb null, model if jobs < 0
 
 module.exports =
   setSecret: (secret) ->
     SECRET = secret
   getPort: (drone, cb) ->
-    up = getConnection({name: drone}).up
-    return cb up if up instanceof Error
-    up (remote) ->
+    connection = getConnection({name: drone})
+    return cb connection if connection instanceof Error
+    connection.up (remote) ->
       remote.port cb
-  associateAndRoute: (model, cb) ->
-    model = associateHosts(model)
-    model = createRoutingTable(model)
-    cb null, model
   associateHosts: associateHosts
-  createRoutingTable: createRoutingTable
+  propagateRoutingTable: propagateRoutingTable
 
 server = http.createServer (req, res) ->
   params = req.url.split '/'

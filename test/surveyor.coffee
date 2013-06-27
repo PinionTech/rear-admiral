@@ -75,3 +75,69 @@ describe 'sortDrones', ->
   it "Should have the highest loaded drone at last position", ->
     sorted = surveyor.sortDrones drones
     assert.equal sorted[sorted.length - 1], 'high'
+
+describe 'routing', ->
+  it "Should create the routing table correctly", ->
+    model =
+      manifest:
+        repo1:
+          routing:
+            domain: "repo1.example.com"
+        repo2:
+          routing:
+            domain: "repo2.example.com"
+            method: "ip_hash"
+        repo3:
+          routing:
+            domain: "repo3.example.com"
+      swarm:
+        drone1:
+          host: "drone1.example.com"
+          portMap:
+            pid1:
+              repo: "repo1"
+              port: 8000
+            pid2:
+              repo: "repo2"
+              port: 8001
+        drone2:
+          host: "drone2.example.com"
+          portMap:
+            pid3:
+              repo: "repo1"
+              port: 8001
+            pid4:
+              repo: "repo3"
+              port: 8000
+
+    model = surveyor.createRoutingTable model
+    assert.deepEqual model.routingTable,
+      repo1:
+        domain: 'repo1.example.com'
+        routes: [
+          {
+            host: 'drone1.example.com'
+            port: 8000
+          }
+          {
+            host: 'drone2.example.com'
+            port: 8001
+          }
+        ]
+      repo2:
+        domain: 'repo2.example.com'
+        method: 'ip_hash'
+        routes: [
+          {
+            host: 'drone1.example.com'
+            port: 8001
+          }
+        ]
+      repo3:
+        domain: 'repo3.example.com'
+        routes: [
+          {
+            host: 'drone2.example.com'
+            port: 8000
+          }
+        ]
