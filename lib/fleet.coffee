@@ -31,6 +31,7 @@ buildOpts = (input, targetDrone, reponame, setup, cb) ->
 repairFleet = (model, cb) ->
   em = new EventEmitter
   jobs = 0
+  uncheckedDrones = Object.keys(model.swarm).length
   procList = {}
   errors = null
 
@@ -66,6 +67,8 @@ repairFleet = (model, cb) ->
     console.error err
 
   for name, drone of model.swarm
+    uncheckedDrones--
+    cb errors, model, procList if !drone.pending? and uncheckedDrones is 0 and jobs is 0
     continue if !drone.pending?
     for repo in drone.pending
       jobs++
