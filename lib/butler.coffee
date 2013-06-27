@@ -21,9 +21,11 @@ createRoutingTable = (model) ->
   routes = {}
   for droneName, drone of model.swarm
     for pid, service of drone.portMap
-      routes[service.repo] ?= []
-      routes[service.repo].push {
-        host: getConnection droneName
+      routes[service.repo] ?= {}
+      routes[service.repo].domain = model.manifest[service.repo].domain
+      routes[service.repo].routes ?= []
+      routes[service.repo].routes.push {
+        host: drone.host
         port: service.port
       }
   model.routingTable = routes

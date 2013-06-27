@@ -4,6 +4,13 @@ butler = require '../lib/butler'
 describe 'routing', ->
   it "Should create the routing table correctly", ->
   model =
+    manifest:
+      repo1:
+        domain: "repo1.example.com"
+      repo2:
+        domain: "repo2.example.com"
+      repo3:
+        domain: "repo3.example.com"
     swarm:
       drone1:
         host: "drone1.example.com"
@@ -24,10 +31,11 @@ describe 'routing', ->
             repo: "repo3"
             port: 8000
 
-  butler.createRoutingTable model, (err, model) ->
-    assert.equal err, null
-    assert.equal model.routingTable, {
-      repo1: [
+  model = butler.createRoutingTable model
+  assert.deepEqual model.routingTable,
+    repo1:
+      domain: 'repo1.example.com'
+      routes: [
         {
           host: 'drone1.example.com'
           port: 8000
@@ -37,16 +45,19 @@ describe 'routing', ->
           port: 8001
         }
       ]
-      repo2: [
+    repo2:
+      domain: 'repo2.example.com'
+      routes: [
         {
           host: 'drone1.example.com'
           port: 8001
         }
       ]
-      repo3: [
+    repo3:
+      domain: 'repo3.example.com'
+      routes: [
         {
           host: 'drone2.example.com'
           port: 8000
         }
       ]
-    }
