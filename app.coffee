@@ -1,4 +1,5 @@
 propagit = require 'propagit'
+levelup = require 'levelup'
 fleet = require './lib/fleet'
 surveyor = require './lib/surveyor'
 butler = require './lib/butler'
@@ -18,12 +19,19 @@ getManifest = (cb) ->
     return cb err if err?
     cb null, JSON.parse data.toString()
 
+db = levelup './model.leveldb'
+model = null
+db.get 'model', (err, data) ->
+  return model = {} if !data?
+  model = JSON.parse data
+  console.log model
+
 startChecking = (hub) ->
   setInterval ->
+    return if !model?
+    model.hub = hub
     getManifest (err, manifest) ->
-      model =
-        hub: hub
-        manifest: manifest
+      model.manifest = manifest
       fleet.listDrones model, (err, model) ->
         return console.error "No drones available" if Object.keys(model.swarm).length < 1
         surveyor.bootstrapStatus model, (err, model) ->
@@ -34,10 +42,12 @@ startChecking = (hub) ->
                 console.log "Spawned processes for #{reponame}", procs for reponame, procs of procList
                 healthy = false if err?
                 model = butler.associateHosts model
+                model = surveyor.clearStalePortMaps model
                 model = surveyor.createRoutingTable model
-                  butler.propagateRoutingTable model, (err, model) ->
-                    console.error err if err?
-                    console.log "Wrote routing table on all drones" unless err?
+                butler.propagateRoutingTable model, (err, model, dronesWritten) ->
+                  console.error "Error propagating routing table", err if err?
+                  console.log "Wrote routing table to #{dronesWritten}" if !err? and dronesWritten.length > 0
+                  db.put 'model', JSON.stringify model
   , 3000
 
 p.hub.on 'up', (hub) ->

@@ -11,6 +11,8 @@
     "coffee-script": "~1.6.2",
     "upnode": "~0.4.3",
     "deep-equal": "0.0.0",
+    "levelup": "~0.10.0",
+    "leveldown": "~0.6.1"
   },
   "devDependencies": {
     "mocha": "~1.10.0",
