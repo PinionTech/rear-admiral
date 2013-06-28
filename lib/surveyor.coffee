@@ -54,18 +54,29 @@ sortDrones = (drones) ->
     a[1] - b[1]
   .map (n) -> n[0]
 
+clearStalePortMaps = (model) ->
+  for droneName, drone of model.portMap
+    for pid of drone
+      if !model.swarm[droneName].procs[pid]?
+        delete drone[pid]
+        continue
+  return model
+
 createRoutingTable = (model) ->
   routes = {}
-  for droneName, drone of model.swarm
-    for pid, service of drone.portMap
+  for droneName, drone of model.portMap
+    for pid, service of drone
       routes[service.repo] ?= {}
+
+      #read in all the options like routing method
       for k, v of model.manifest[service.repo].routing
         routes[service.repo][k] = v
+
       routes[service.repo].routes ?= []
-      routes[service.repo].routes.push {
-        host: drone.host
-        port: service.port
-      }
+      if model.swarm[droneName].procs[pid].status is 'running'
+        routes[service.repo].routes.push
+          host: model.swarm[droneName].host
+          port: service.port
   model.routingTable = routes
   return model
 
@@ -75,3 +86,4 @@ module.exports =
   buildPending: buildPending
   sortDrones: sortDrones
   createRoutingTable: createRoutingTable
+  clearStalePortMaps: clearStalePortMaps

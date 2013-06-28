@@ -49,12 +49,19 @@ repairFleet = (model, cb) ->
     buildOpts model.manifest[repo].opts, drone, repo, false, (err, opts) ->
       throw new Error err if err?
       model.hub.spawn opts, (err, procs) ->
-        model.swarm[drone].portMap ?= {}
+
+        model.portMap ?= {}
+        model.portMap[drone] ?= {}
         if opts.env.PORT?
           pid = procs[drone]
-          model.swarm[drone].portMap[pid] =
+          model.portMap[drone][pid] =
             repo: repo
             port: opts.env.PORT
+
+        model.swarm[drone].procs[pid] =
+          status: 'pending'
+          repo: repo
+
         em.emit 'error', err if err?
         procList[repo] ?= []
         procList[repo].push procs

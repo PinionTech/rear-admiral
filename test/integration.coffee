@@ -69,9 +69,11 @@ describe 'integration', ->
               drone1:
                 load: 0
                 pending: ['test1']
+                procs: {}
               drone2:
                 load: 0
                 pending: ['test1']
+                procs: {}
           fleet.repairFleet model, (err, model, procList) ->
             assert.equal err, null
             assert procs.length > 0 for reponame, procs of procList

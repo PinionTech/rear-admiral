@@ -90,25 +90,36 @@ describe 'routing', ->
         repo3:
           routing:
             domain: "repo3.example.com"
+      portMap:
+        drone1:
+          pid1:
+            repo: "repo1"
+            port: 8000
+          pid2:
+            repo: "repo2"
+            port: 8001
+        drone2:
+          pid3:
+            repo: "repo1"
+            port: 8001
+          pid4:
+            repo: "repo3"
+            port: 8000
       swarm:
         drone1:
           host: "drone1.example.com"
-          portMap:
+          procs:
             pid1:
-              repo: "repo1"
-              port: 8000
+              status: "running"
             pid2:
-              repo: "repo2"
-              port: 8001
+              status: "running"
         drone2:
           host: "drone2.example.com"
-          portMap:
+          procs:
             pid3:
-              repo: "repo1"
-              port: 8001
+              status: "running"
             pid4:
-              repo: "repo3"
-              port: 8000
+              status: "running"
 
     model = surveyor.createRoutingTable model
     assert.deepEqual model.routingTable,
@@ -141,3 +152,30 @@ describe 'routing', ->
             port: 8000
           }
         ]
+  it "Should clear non-existent processes from the portMap", ->
+    model =
+      portMap:
+        drone1:
+          pid1: "ohai"
+          pid2: "ohai"
+        drone2:
+          pid3: "ohai"
+          pid4: "ohai"
+      swarm:
+        drone1:
+          procs:
+            pid2:
+              status: "running"
+        drone2:
+          procs:
+            pid3:
+              status: "running"
+            pid4:
+              status: "restarting"
+    model = surveyor.clearStalePortMaps model
+    assert.deepEqual model.portMap,
+      drone1:
+        pid2: "ohai"
+      drone2:
+        pid3: "ohai"
+        pid4: "ohai"
