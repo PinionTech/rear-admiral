@@ -23,21 +23,24 @@ propagateRoutingTable = (model, cb) ->
 
   for droneName, drone of model.swarm
     drone.routingTable ?= {}
+    dronesWritten = []
     if deepEqual drone.routingTable, model.routingTable
       jobs--
+      return cb null, model, dronesWritten if jobs is 0
       continue
     drone.routingTable = JSON.parse JSON.stringify model.routingTable
     connection = getConnection({name: droneName})
-    return cb connection, model if connection instanceof Error
-    timer = setTimeout ->
-      drone.routingTable = {}
-    , 1000 * 10
-    connection.up (remote) ->
-      remote.updateRouting model.routingTable, (err) ->
-        clearTimeout timer
-        jobs--
-        return cb err, model if err?
-        return cb null, model if jobs < 0
+    return cb connection, model, dronesWritten if connection instanceof Error
+    do (droneName) ->
+      timer = setTimeout ->
+        drone.routingTable = {}
+      , 1000 * 10
+      connection.up (remote) ->
+        remote.updateRouting model.routingTable, (err) ->
+          clearTimeout timer
+          dronesWritten.push droneName
+          jobs--
+          cb err, model, dronesWritten if jobs is 0
 
 module.exports =
   setSecret: (secret) ->
