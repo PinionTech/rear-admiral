@@ -20,6 +20,7 @@
     "rimraf": "~2.1.4"
   },
   "scripts": {
+    "pre-test": "git submodule init && git submodule update",
     "test": "./node_modules/.bin/mocha -R spec --compilers coffee:coffee-script"
   },
   "repository": {
