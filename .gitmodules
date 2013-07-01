@@ -1,3 +1,9 @@
 [submodule "porter"]
 	path = porter
 	url = https://github.com/PinionTech/porter
+[submodule "testrepos/test2"]
+	path = testrepos/test2
+	url = https://github.com/davidbanham/test2.git
+[submodule "testrepos/test1"]
+	path = testrepos/test1
+	url = https://github.com/davidbanham/test1.git
