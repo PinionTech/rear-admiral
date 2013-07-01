@@ -24,7 +24,6 @@ model = null
 db.get 'model', (err, data) ->
   return model = {} if !data?
   model = JSON.parse data
-  console.log model
 
 startChecking = (hub) ->
   setInterval ->
