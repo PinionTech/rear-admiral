@@ -1,22 +1,35 @@
 upnode = require 'upnode'
 http = require 'http'
 deepEqual = require 'deep-equal'
+levelup = require 'levelup'
 SECRET = ''
+hostCache = levelup './hostCache.leveldb'
 connections = {}
 
-getConnection = (drone) ->
-  return connections[drone.name] if connections[drone.name]?
-  return new Error "Butler error: Unknown drone, no host provided" if !drone.host?
+getConnection = (drone, cb) ->
+  return cb null, connections[drone] if connections[drone]?
+  return cb new Error "Butler error: Unknown drone"
+
+setConnection = (drone) ->
+  hostCache.put drone.name, drone.host if drone.host?
+  return new Error "Butler error: No host provided" if !drone.host?
   connections[drone.name] =
     host: drone.host
   connections[drone.name].up = upnode.connect drone.host, 7004, (remote, conn) ->
     remote.auth 'o87asdoa87sa', (err, res) ->
       console.error err if err?
       conn.emit 'up', res
-associateHosts = (model) ->
+  null
+
+associateHosts = (model, cb) ->
+  jobs = 0
   for droneName, drone of model.swarm
-    drone.host = getConnection({name: droneName}).host
-  return model
+    jobs++
+    do (droneName, drone) ->
+      hostCache.get droneName, (err, host) ->
+        jobs--
+        drone.host = host
+        cb null, model if jobs is 0
 
 propagateRoutingTable = (model, cb) ->
   jobs = Object.keys(model.swarm).length
@@ -31,29 +44,29 @@ propagateRoutingTable = (model, cb) ->
     model.butlerCache ?= {}
     model.butlerCache[droneName] ?= {}
     model.butlerCache[droneName].routingTable = JSON.parse JSON.stringify model.routingTable
-    connection = getConnection({name: droneName})
-    return cb connection, model, dronesWritten if connection instanceof Error
-    return cb (new Error "routingTable is blank"), model, dronesWritten if deepEqual model.routingTable, {}
-    do (droneName) ->
-      timer = setTimeout ->
-        drone.routingTable = {}
-      , 1000 * 10
-      connection.up (remote) ->
-        remote.updateRouting model.routingTable, (err) ->
-          model.butlerCache[droneName].routingTable = {} if err?
-          clearTimeout timer
-          dronesWritten.push droneName
-          jobs--
-          cb err, model, dronesWritten if jobs is 0
+    getConnection droneName, (err, connection) ->
+      return cb connection, model, dronesWritten if connection instanceof Error
+      return cb (new Error "routingTable is blank"), model, dronesWritten if deepEqual model.routingTable, {}
+      do (droneName) ->
+        timer = setTimeout ->
+          drone.routingTable = {}
+        , 1000 * 10
+        connection.up (remote) ->
+          remote.updateRouting model.routingTable, (err) ->
+            model.butlerCache[droneName].routingTable = {} if err?
+            clearTimeout timer
+            dronesWritten.push droneName
+            jobs--
+            cb err, model, dronesWritten if jobs is 0
 
 module.exports =
   setSecret: (secret) ->
     SECRET = secret
   getPort: (drone, cb) ->
-    connection = getConnection({name: drone})
-    return cb connection if connection instanceof Error
-    connection.up (remote) ->
-      remote.port cb
+    getConnection drone, (err, connection) ->
+      return cb err if err?
+      connection.up (remote) ->
+        remote.port cb
   associateHosts: associateHosts
   propagateRoutingTable: propagateRoutingTable
 
@@ -66,7 +79,7 @@ server = http.createServer (req, res) ->
   if authArray[1] != SECRET
     res.writeHead 403
     res.end '403'
-  getConnection({name: params[2], host: req.socket.remoteAddress})
+  setConnection({name: params[2], host: req.socket.remoteAddress})
   res.writeHead 200
   res.end '200'
 server.listen 7003, '127.0.0.1'

@@ -40,13 +40,13 @@ startChecking = (hub) ->
                 console.error err if err?
                 console.log "Spawned processes for #{reponame}", procs for reponame, procs of procList
                 healthy = false if err?
-                model = butler.associateHosts model
-                model = surveyor.clearStalePortMaps model
-                model = surveyor.createRoutingTable model
-                butler.propagateRoutingTable model, (err, model, dronesWritten) ->
-                  console.error "Error propagating routing table", err if err?
-                  console.log "Wrote routing table to #{dronesWritten}" if !err? and dronesWritten.length > 0
-                  db.put 'model', JSON.stringify model
+                butler.associateHosts model, (err, model) ->
+                  model = surveyor.clearStalePortMaps model
+                  model = surveyor.createRoutingTable model
+                  butler.propagateRoutingTable model, (err, model, dronesWritten) ->
+                    console.error "Error propagating routing table", err if err?
+                    console.log "Wrote routing table to #{dronesWritten}" if !err? and dronesWritten.length > 0
+                    db.put 'model', JSON.stringify model
   , 3000
 
 p.hub.on 'up', (hub) ->
