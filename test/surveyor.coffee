@@ -81,13 +81,19 @@ describe 'routing', ->
     model =
       manifest:
         repo1:
+          opts:
+            commit: "1"
           routing:
             domain: "repo1.example.com"
         repo2:
+          opts:
+            commit: "2"
           routing:
             domain: "repo2.example.com"
             method: "ip_hash"
         repo3:
+          opts:
+            commit: "3"
           routing:
             domain: "repo3.example.com"
       portMap:
@@ -95,16 +101,20 @@ describe 'routing', ->
           pid1:
             repo: "repo1"
             port: 8000
+            commit: "1"
           pid2:
             repo: "repo2"
             port: 8001
+            commit: "2"
         drone2:
           pid3:
             repo: "repo1"
             port: 8001
+            commit: "1"
           pid4:
             repo: "repo3"
             port: 8000
+            commit: "3"
       swarm:
         drone1:
           host: "drone1.example.com"
