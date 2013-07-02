@@ -57,6 +57,7 @@ repairFleet = (model, cb) ->
           model.portMap[drone][pid] =
             repo: repo
             port: opts.env.PORT
+            commit: opts.commit
 
         model.swarm[drone].procs[pid] =
           status: 'pending'
@@ -113,7 +114,7 @@ module.exports =
     for reponame, repo of model.manifest
       for dronename, drone of model.swarm
         for procname, proc of drone.procs
-          repo.running += 1 if proc.repo == reponame and proc.status == "running"
+          repo.running += 1 if proc.repo is reponame and proc.status is "running" and proc.commit is repo.opts.commit
     cb null, model
 
   repairFleet: repairFleet

@@ -66,6 +66,7 @@ createRoutingTable = (model) ->
   routes = {}
   for droneName, drone of model.portMap
     for pid, service of drone
+      continue if service.commit isnt model.manifest[service.repo].opts.commit
       routes[service.repo] ?= {}
 
       #read in all the options like routing method
