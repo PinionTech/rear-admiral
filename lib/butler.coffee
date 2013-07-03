@@ -2,7 +2,9 @@ upnode = require 'upnode'
 http = require 'http'
 deepEqual = require 'deep-equal'
 levelup = require 'levelup'
-SECRET = ''
+SECRET =
+  butlerSecret: ''
+  porterSecret: ''
 hostCache = levelup './hostCache.leveldb'
 connections = {}
 
@@ -16,7 +18,7 @@ setConnection = (drone) ->
   connections[drone.name] =
     host: drone.host
   connections[drone.name].up = upnode.connect drone.host, 7004, (remote, conn) ->
-    remote.auth 'o87asdoa87sa', (err, res) ->
+    remote.auth SECRET.porterSecret, (err, res) ->
       console.error err if err?
       conn.emit 'up', res
   null
@@ -76,7 +78,7 @@ server = http.createServer (req, res) ->
     res.writeHead 404
     return res.end '404'
   authArray = new Buffer(req.headers.authorization.split(' ')[1], 'base64').toString('ascii').split(':')
-  if authArray[1] != SECRET
+  if authArray[1] isnt SECRET.butlerSecret
     res.writeHead 403
     res.end '403'
   setConnection({name: params[2], host: req.socket.remoteAddress})

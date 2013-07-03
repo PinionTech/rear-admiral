@@ -5,9 +5,12 @@ surveyor = require './lib/surveyor'
 butler = require './lib/butler'
 fs = require 'fs'
 
-OPTS =
-  hub: '127.0.0.1:7000'
-  secret: 'lolwat'
+OPTS = JSON.parse fs.readFileSync 'opts.json'.toString()
+
+butler.setSecret OPTS.butlerSecret
+butler.setSecret
+  butlerSecret: OPTS.butlerSecret
+  porterSecret: OPTS.porterSecret
 
 p = propagit(OPTS)
 p.on 'error', (err) ->

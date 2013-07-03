@@ -1,6 +1,5 @@
 EventEmitter = require('events').EventEmitter
 butler = require './butler'
-butler.setSecret 'asd123'
 
 buildOpts = (input, targetDrone, reponame, setup, cb) ->
   jobs = 0
