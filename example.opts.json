@@ -1,4 +1,10 @@
 {
-    "hub": "127.0.0.1:7000",
-    "secret": "lolwat"
+    "butler": {
+        "hub": "127.0.0.1:7000",
+        "secret": "lolwat"
+    },
+    "propagit": {
+        "butlerSecret": "lolwat",
+        "porterSecret": "lolwat"
+    }
 }

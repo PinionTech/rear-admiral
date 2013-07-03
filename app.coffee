@@ -7,12 +7,11 @@ fs = require 'fs'
 
 OPTS = JSON.parse fs.readFileSync 'opts.json'.toString()
 
-butler.setSecret OPTS.butlerSecret
 butler.setSecret
-  butlerSecret: OPTS.butlerSecret
-  porterSecret: OPTS.porterSecret
+  butlerSecret: OPTS.butler.butlerSecret
+  porterSecret: OPTS.butler.porterSecret
 
-p = propagit(OPTS)
+p = propagit(OPTS.propagit)
 p.on 'error', (err) ->
   healthy = false
   console.error err
