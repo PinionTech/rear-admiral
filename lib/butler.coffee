@@ -39,12 +39,12 @@ propagateRoutingTable = (model, cb) ->
   for droneName, drone of model.swarm
     drone.routingTable ?= {}
     dronesWritten = []
+    model.butlerCache ?= {}
+    model.butlerCache[droneName] ?= {}
     if deepEqual model.butlerCache[droneName].routingTable, model.routingTable
       jobs--
       return cb null, model, dronesWritten if jobs is 0
       continue
-    model.butlerCache ?= {}
-    model.butlerCache[droneName] ?= {}
     model.butlerCache[droneName].routingTable = JSON.parse JSON.stringify model.routingTable
     getConnection droneName, (err, connection) ->
       return cb connection, model, dronesWritten if connection instanceof Error
