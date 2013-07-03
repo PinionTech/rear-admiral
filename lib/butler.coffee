@@ -84,4 +84,4 @@ server = http.createServer (req, res) ->
   setConnection({name: params[2], host: req.socket.remoteAddress})
   res.writeHead 200
   res.end '200'
-server.listen 7003, '127.0.0.1'
+server.listen 7003, '0.0.0.0'
