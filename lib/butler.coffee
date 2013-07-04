@@ -7,6 +7,7 @@ SECRET =
   porterSecret: ''
 hostCache = levelup './hostCache.leveldb'
 connections = {}
+currentRoutingTable = {}
 
 getConnection = (drone, cb) ->
   return cb null, connections[drone] if connections[drone]?
@@ -34,6 +35,7 @@ associateHosts = (model, cb) ->
         cb null, model if jobs is 0
 
 propagateRoutingTable = (model, cb) ->
+  currentRoutingTable = JSON.parse JSON.stringify model.routingTable
   jobs = Object.keys(model.swarm).length
 
   for droneName, drone of model.swarm
@@ -74,14 +76,17 @@ module.exports =
 
 server = http.createServer (req, res) ->
   params = req.url.split '/'
-  if params[1] != 'checkin'
-    res.writeHead 404
-    return res.end '404'
   authArray = new Buffer(req.headers.authorization.split(' ')[1], 'base64').toString('ascii').split(':')
   if authArray[1] isnt SECRET.butlerSecret
     res.writeHead 403
     res.end '403'
-  setConnection({name: params[2], host: req.socket.remoteAddress})
-  res.writeHead 200
-  res.end '200'
+  if params[1] is 'checkin'
+    setConnection({name: params[2], host: req.socket.remoteAddress})
+    res.writeHead 200
+    res.end '200'
+  else if params[1] is 'routingTable'
+    res.end currentRoutingTable
+  else
+    res.writeHead 404
+    return res.end '404'
 server.listen 7003, '0.0.0.0'
