@@ -85,7 +85,7 @@ server = http.createServer (req, res) ->
     res.writeHead 200
     res.end '200'
   else if params[1] is 'routingTable'
-    res.end currentRoutingTable
+    res.end JSON.stringify currentRoutingTable
   else
     res.writeHead 404
     return res.end '404'
