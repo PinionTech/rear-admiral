@@ -49,7 +49,7 @@ propagateRoutingTable = (model, cb) ->
       continue
     model.butlerCache[droneName].routingTable = JSON.parse JSON.stringify model.routingTable
     getConnection droneName, (err, connection) ->
-      return cb connection, model, dronesWritten if connection instanceof Error
+      return cb err, model, dronesWritten if err?
       return cb (new Error "routingTable is blank"), model, dronesWritten if deepEqual model.routingTable, {}
       do (droneName) ->
         timer = setTimeout ->
