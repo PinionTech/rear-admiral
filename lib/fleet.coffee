@@ -95,8 +95,11 @@ listDrones = (model, cb) ->
       procs: drone.procs
       load: drone.load
 
+  em.on 'error', (err) ->
+    return cb err, model
+
   em.on 'end', ->
-    cb null, model
+    return cb null, model
 
   model.hub.ps em.emit.bind em
 

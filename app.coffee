@@ -34,6 +34,7 @@ startChecking = (hub) ->
     getManifest (err, manifest) ->
       model.manifest = manifest
       fleet.listDrones model, (err, model) ->
+        return console.error "Error listing drones", err if err?
         return console.error "No drones available" if Object.keys(model.swarm).length < 1
         surveyor.bootstrapStatus model, (err, model) ->
           fleet.checkFleet model, (err, model) ->
