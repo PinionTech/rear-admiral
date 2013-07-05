@@ -64,7 +64,7 @@ describe 'integration', ->
                 opts:
                   env: {PORT: 3000}
                   command: ["node", "server.js"]
-                  commit: '8b7243393950e0209c7a9346e9a1a839b99619d9'
+                  commit: '7bc4bbc44cf9ce4daa7dee4187a11759a51c3447'
             swarm:
               drone1:
                 load: 0
