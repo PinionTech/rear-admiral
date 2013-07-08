@@ -66,6 +66,7 @@ startChecking = (hub) ->
                       console.error "Error propagating routing table", err if err?
                       return bail "Error propagating routing table", err if err?
                       return bail "Wrote routing table to #{dronesWritten}" if dronesWritten.length > 0
+                      return bail null, null
   , 3000
 
 p.hub.on 'up', (hub) ->
