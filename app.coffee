@@ -5,6 +5,8 @@ surveyor = require './lib/surveyor'
 butler = require './lib/butler'
 fs = require 'fs'
 
+console.log "Rear Admiral initialised"
+
 OPTS = JSON.parse fs.readFileSync 'opts.json'.toString()
 
 butler.setSecret
@@ -23,13 +25,18 @@ getManifest = (cb) ->
 
 db = levelup './model.leveldb'
 model = null
+lock = false
+alreadyChecking = false
 db.get 'model', (err, data) ->
   return model = {} if !data?
   model = JSON.parse data
 
 startChecking = (hub) ->
+  alreadyChecking = true
   setInterval ->
     return if !model?
+    return if lock
+    lock = true
     model.hub = hub
     getManifest (err, manifest) ->
       model.manifest = manifest
@@ -50,12 +57,13 @@ startChecking = (hub) ->
                     console.error "Error propagating routing table", err if err?
                     console.log "Wrote routing table to #{dronesWritten}" if !err? and dronesWritten.length > 0
                     db.put 'model', JSON.stringify model
+                    lock = false
   , 3000
 
 p.hub.on 'up', (hub) ->
   console.log 'connection up'
   healthy = true
-  startChecking hub
+  startChecking hub unless alreadyChecking
 
 exit = () ->
   p.hub.close()
