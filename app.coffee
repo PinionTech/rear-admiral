@@ -31,6 +31,14 @@ db.get 'model', (err, data) ->
   return model = {} if !data?
   model = JSON.parse data
 
+bail = (msg, err) ->
+  if err?
+    console.error msg, err
+  else if msg?
+    console.log msg
+  lock = false
+  db.put 'model', JSON.stringify model
+
 startChecking = (hub) ->
   alreadyChecking = true
   setInterval ->
@@ -41,8 +49,8 @@ startChecking = (hub) ->
     getManifest (err, manifest) ->
       model.manifest = manifest
       fleet.listDrones model, (err, model) ->
-        return console.error "Error listing drones", err if err?
-        return console.error "No drones available" if Object.keys(model.swarm).length < 1
+        return bail "Error listing drones", err if err?
+        return bail "No drones available", null if Object.keys(model.swarm).length < 1
         surveyor.bootstrapStatus model, (err, model) ->
           butler.checkedInStatus mode, (err, model) ->
             fleet.checkFleet model, (err, model) ->
@@ -56,9 +64,8 @@ startChecking = (hub) ->
                     model = surveyor.createRoutingTable model
                     butler.propagateRoutingTable model, (err, model, dronesWritten) ->
                       console.error "Error propagating routing table", err if err?
-                      console.log "Wrote routing table to #{dronesWritten}" if !err? and dronesWritten.length > 0
-                      db.put 'model', JSON.stringify model
-                      lock = false
+                      return bail "Error propagating routing table", err if err?
+                      return bail "Wrote routing table to #{dronesWritten}" if dronesWritten.length > 0
   , 3000
 
 p.hub.on 'up', (hub) ->
