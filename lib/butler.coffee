@@ -24,6 +24,14 @@ setConnection = (drone) ->
       conn.emit 'up', res
   null
 
+checkedInStatus = (model, cb) ->
+  pending = Object.keys(model.swarm).length
+  for drone, droneData of model.swarm
+    getConnection drone, (err) ->
+      droneData.checkedin = !err?
+      pending--
+      cb null, mode if pending is 0
+
 associateHosts = (model, cb) ->
   jobs = 0
   for droneName, drone of model.swarm
@@ -71,8 +79,10 @@ module.exports =
       return cb err if err?
       connection.up (remote) ->
         remote.port cb
+  getConnection: getConnection
   associateHosts: associateHosts
   propagateRoutingTable: propagateRoutingTable
+  checkedInStatus: checkedInStatus
 
 server = http.createServer (req, res) ->
   params = req.url.split '/'

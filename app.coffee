@@ -44,20 +44,21 @@ startChecking = (hub) ->
         return console.error "Error listing drones", err if err?
         return console.error "No drones available" if Object.keys(model.swarm).length < 1
         surveyor.bootstrapStatus model, (err, model) ->
-          fleet.checkFleet model, (err, model) ->
-            surveyor.buildPending model, (err, model) ->
-              fleet.repairFleet model, (err, model, procList) ->
-                console.error err if err?
-                console.log "Spawned processes for #{reponame}", procs for reponame, procs of procList
-                healthy = false if err?
-                butler.associateHosts model, (err, model) ->
-                  model = surveyor.clearStalePortMaps model
-                  model = surveyor.createRoutingTable model
-                  butler.propagateRoutingTable model, (err, model, dronesWritten) ->
-                    console.error "Error propagating routing table", err if err?
-                    console.log "Wrote routing table to #{dronesWritten}" if !err? and dronesWritten.length > 0
-                    db.put 'model', JSON.stringify model
-                    lock = false
+          butler.checkedInStatus mode, (err, model) ->
+            fleet.checkFleet model, (err, model) ->
+              surveyor.buildPending model, (err, model) ->
+                fleet.repairFleet model, (err, model, procList) ->
+                  console.error err if err?
+                  console.log "Spawned processes for #{reponame}", procs for reponame, procs of procList
+                  healthy = false if err?
+                  butler.associateHosts model, (err, model) ->
+                    model = surveyor.clearStalePortMaps model
+                    model = surveyor.createRoutingTable model
+                    butler.propagateRoutingTable model, (err, model, dronesWritten) ->
+                      console.error "Error propagating routing table", err if err?
+                      console.log "Wrote routing table to #{dronesWritten}" if !err? and dronesWritten.length > 0
+                      db.put 'model', JSON.stringify model
+                      lock = false
   , 3000
 
 p.hub.on 'up', (hub) ->

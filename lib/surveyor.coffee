@@ -34,19 +34,21 @@ buildPending = (model, cb) ->
       delta = repo.running - repo.instances
       while delta < 0
         delta++
-        bootstrappedDrones = filterBootstrapped JSON.parse JSON.stringify model.swarm
-        if Object.keys(bootstrappedDrones).length < 1
+        drones = JSON.parse JSON.stringify model.swarm
+        drones = filterDrones drones, "bootstrapped"
+        drones = filterDrones drones, "checkedin"
+        if Object.keys(drones).length < 1
           err = "No bootstrapped drones"
         else
-          targetDrone = (sortDrones bootstrappedDrones)[0]
+          targetDrone = (sortDrones drones)[0]
           model.swarm[targetDrone].load += repo.load
           model.swarm[targetDrone].pending ?= []
           model.swarm[targetDrone].pending.push reponame
   cb err, model
 
-filterBootstrapped = (drones) =>
+filterDrones = (drones, attr) =>
   for name, drone of drones
-    delete drones[name] if !drone.bootstrapped
+    delete drones[name] if !drone[attr]
   return drones
 
 sortDrones = (drones) ->

@@ -46,10 +46,12 @@ describe 'buildPending', ->
         load: 0
         procs: {}
         bootstrapped: true
+        checkedin: true
       drone2:
         load: 0
         procs: {}
         bootstrapped: true
+        checkedin: true
   it "Should spread evenly across available drones", (done) ->
     surveyor.buildPending model, (err, model) ->
       assert (Object.keys(model.swarm).length > 0), "Swarm empty"
