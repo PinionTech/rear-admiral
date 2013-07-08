@@ -30,7 +30,7 @@ checkedInStatus = (model, cb) ->
     getConnection drone, (err) ->
       droneData.checkedin = !err?
       pending--
-      cb null, mode if pending is 0
+      cb null, model if pending is 0
 
 associateHosts = (model, cb) ->
   jobs = 0

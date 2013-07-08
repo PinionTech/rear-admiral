@@ -52,7 +52,7 @@ startChecking = (hub) ->
         return bail "Error listing drones", err if err?
         return bail "No drones available", null if Object.keys(model.swarm).length < 1
         surveyor.bootstrapStatus model, (err, model) ->
-          butler.checkedInStatus mode, (err, model) ->
+          butler.checkedInStatus model, (err, model) ->
             fleet.checkFleet model, (err, model) ->
               surveyor.buildPending model, (err, model) ->
                 fleet.repairFleet model, (err, model, procList) ->
