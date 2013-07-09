@@ -83,7 +83,6 @@ repairFleet = (model, cb) ->
 
 listDrones = (model, cb) ->
   model.swarm = {}
-  drones = model.swarm
   em =  new EventEmitter
 
   em.on 'data', (name, procs) ->
@@ -91,7 +90,7 @@ listDrones = (model, cb) ->
       name: name
       procs: procs
     drone = calcLoad drone, model.manifest
-    drones[drone.name] =
+    model.swarm[drone.name] =
       procs: drone.procs
       load: drone.load
 
