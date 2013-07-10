@@ -104,7 +104,8 @@ listDrones = (model, cb) ->
 
   em.on 'end', ->
     em.removeAllListeners()
-    return cb null, model
+    err = "No drones available" if Object.keys(model.swarm).length is 0
+    return cb err or null, model
 
   model.hub.ps em.emit.bind em
 

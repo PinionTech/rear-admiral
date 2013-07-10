@@ -4,6 +4,7 @@ fleet = require './lib/fleet'
 surveyor = require './lib/surveyor'
 butler = require './lib/butler'
 fs = require 'fs'
+async = require 'async'
 
 console.log "Rear Admiral initialised"
 
@@ -17,62 +18,84 @@ p = propagit(OPTS.propagit)
 p.on 'error', (err) ->
   healthy = false
   console.error err
-healthy = false
+
+model = null
+hub = null
+lock = false
+alreadyChecking = false
+
+db = levelup './model.leveldb'
+db.get 'model', (err, data) ->
+  return model = {} if !data?
+  model = JSON.parse data
+
 getManifest = (cb) ->
   fs.readFile './manifest.json', (err, data) ->
     return cb err if err?
     cb null, JSON.parse data.toString()
 
-db = levelup './model.leveldb'
-model = null
-lock = false
-alreadyChecking = false
-db.get 'model', (err, data) ->
-  return model = {} if !data?
-  model = JSON.parse data
-
-bail = (msg, err) ->
-  if err?
-    console.error msg, err
-  else if msg?
-    console.log msg
-  lock = false
-  db.put 'model', JSON.stringify model
+runSeries = ->
+  async.series [
+    (cb) ->
+      return cb "Model is undefined" if !model?
+      return cb "Lock was #{lock}" if lock
+      lock = true
+      model.hub = hub
+      return cb null
+    (cb) ->
+      getManifest (err, manifest) ->
+        model.manifest = manifest
+        cb err
+    (cb) ->
+      fleet.listDrones model, (err, newModel) ->
+        model = newModel
+        cb err
+    (cb) ->
+      surveyor.bootstrapStatus model, (err, newModel) ->
+        model = newModel
+        cb err
+    (cb) ->
+      butler.checkedInStatus model, (err, newModel) ->
+        model = newModel
+        cb err
+    (cb) ->
+      fleet.checkFleet model, (err, newModel) ->
+        model = newModel
+        cb err
+    (cb) ->
+      surveyor.buildPending model, (err, newModel) ->
+        console.error err if err?
+        model = newModel
+        cb null
+    (cb) ->
+      fleet.repairFleet model, (err, newModel, procList) ->
+        model = newModel
+        console.log "Spawned processes for #{reponame}", procs for reponame, procs of procList
+        cb err
+    (cb) ->
+      butler.associateHosts model, (err, newModel) ->
+        model = newModel
+        cb err
+    (cb) ->
+      model = surveyor.clearStalePortMaps model
+      model = surveyor.createRoutingTable model
+      cb null
+    (cb) ->
+      butler.propagateRoutingTable model, (err, newModel, dronesWritten) ->
+        console.log "Wrote routing table to #{dronesWritten}" if dronesWritten.length > 0
+        cb err
+  ], (err, results) ->
+    console.error err if err?
+    lock = false
+    db.put 'model', JSON.stringify model
 
 startChecking = (hub) ->
-  alreadyChecking = true
   setInterval ->
-    return if !model?
-    return if lock
-    lock = true
-    model.hub = hub
-    getManifest (err, manifest) ->
-      model.manifest = manifest
-      fleet.listDrones model, (err, model) ->
-        return bail "Error listing drones", err if err?
-        return bail "No drones available", null if Object.keys(model.swarm).length < 1
-        surveyor.bootstrapStatus model, (err, model) ->
-          butler.checkedInStatus model, (err, model) ->
-            fleet.checkFleet model, (err, model) ->
-              surveyor.buildPending model, (err, model) ->
-                fleet.repairFleet model, (err, model, procList) ->
-                  console.error err if err?
-                  console.log "Spawned processes for #{reponame}", procs for reponame, procs of procList
-                  healthy = false if err?
-                  butler.associateHosts model, (err, model) ->
-                    model = surveyor.clearStalePortMaps model
-                    model = surveyor.createRoutingTable model
-                    butler.propagateRoutingTable model, (err, model, dronesWritten) ->
-                      console.error "Error propagating routing table", err if err?
-                      return bail "Error propagating routing table", err if err?
-                      return bail "Wrote routing table to #{dronesWritten}" if dronesWritten.length > 0
-                      return bail null, null
+    runSeries()
   , 3000
 
-p.hub.on 'up', (hub) ->
+p.hub.on 'up', (returnedHub) ->
   console.log 'connection up'
-  healthy = true
-  startChecking hub unless alreadyChecking
-
-exit = () ->
-  p.hub.close()
+  hub = returnedHub
+  startChecking() unless alreadyChecking
+  alreadyChecking = true
