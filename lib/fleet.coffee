@@ -66,7 +66,9 @@ repairFleet = (model, cb) ->
         procList[repo] ?= []
         procList[repo].push procs
         jobs--
-        cb errors, model, procList if jobs is 0
+        if jobs is 0
+          em.removeAllListeners()
+          cb errors, model, procList
 
   em.on 'error', (err) ->
     errors ?= []
@@ -75,7 +77,9 @@ repairFleet = (model, cb) ->
 
   for name, drone of model.swarm
     uncheckedDrones--
-    cb errors, model, procList if !drone.pending? and uncheckedDrones is 0 and jobs is 0
+    if !drone.pending? and uncheckedDrones is 0 and jobs is 0
+      em.removeAllListeners()
+      cb errors, model, procList
     continue if !drone.pending?
     for repo in drone.pending
       jobs++
@@ -95,9 +99,11 @@ listDrones = (model, cb) ->
       load: drone.load
 
   em.on 'error', (err) ->
+    em.removeAllListeners()
     return cb err, model
 
   em.on 'end', ->
+    em.removeAllListeners()
     return cb null, model
 
   model.hub.ps em.emit.bind em
