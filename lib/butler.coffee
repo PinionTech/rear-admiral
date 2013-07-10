@@ -11,7 +11,10 @@ currentRoutingTable = {}
 
 getConnection = (drone, cb) ->
   return cb null, connections[drone] if connections[drone]?
-  return cb new Error "Butler error: Unknown drone"
+  hostCache.get drone, (err, data) ->
+    return cb new Error "Butler error: Unknown drone" if err?
+    setConnection {name: drone, host: data}
+    return cb connections[drone]
 
 setConnection = (drone) ->
   hostCache.put drone.name, drone.host if drone.host?
