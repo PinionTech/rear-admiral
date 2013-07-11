@@ -87,7 +87,7 @@ repairFleet = (model, cb) ->
 
 listDrones = (model, cb) ->
   model.swarm = {}
-  em =  new EventEmitter
+  em = new EventEmitter
 
   em.on 'data', (name, procs) ->
     drone =
@@ -105,9 +105,11 @@ listDrones = (model, cb) ->
   em.on 'end', ->
     em.removeAllListeners()
     err = "No drones available" if Object.keys(model.swarm).length is 0
-    return cb err or null, model
+    return cb err ? null, model
 
-  model.hub.ps em.emit.bind em
+  #Why can't I just pass it em.emit as an argument? I don't even know, man. Dnode.
+  model.hub.ps (one, two, three, four) ->
+    em.emit one, two, three, four
 
 calcLoad = (drone, manifest) ->
   load = 0
